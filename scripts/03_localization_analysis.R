@@ -58,8 +58,9 @@ cat(
 # ------------------------------------------------------------
 # DeepLoc 2.1 predictions
 # ------------------------------------------------------------
-# DeepLoc predictions were generated externally.
-# The CSV files should be placed in data/external_predictions/.
+# External prediction outputs are not included in this repository.
+# These files were generated using DeepLoc 2.1 and should be supplied
+# locally at the paths specified below before running this section.
 
 deeploc_1 <- readr::read_csv(
   "data/external_predictions/results_6AE8AA0500344A5D3C514F4F.csv",
