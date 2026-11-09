@@ -44,6 +44,12 @@ files <- list.files(
 
 names(files) <- basename(dirname(files))
 
+cat(
+  "Salmon samples detected:",
+  length(files),
+  "\n"
+)
+
 txi <- tximport::tximport(
   files,
   type = "salmon",
@@ -54,23 +60,6 @@ salmonQuant <- list(
   counts = txi$counts,
   abundance = txi$abundance
 )
-
-# Transcript excluded from the original analysis.
-# The reason for this exclusion should be documented in the
-# repository README before publication.
-transcript_to_remove <- "ATMG00735.1"
-
-salmonQuant$counts <- salmonQuant$counts[
-  !rownames(salmonQuant$counts) %in% transcript_to_remove,
-  ,
-  drop = FALSE
-]
-
-salmonQuant$abundance <- salmonQuant$abundance[
-  !rownames(salmonQuant$abundance) %in% transcript_to_remove,
-  ,
-  drop = FALSE
-]
 
 # ============================================================
 # 3. Construct IsoformSwitchAnalyzeR object
@@ -102,7 +91,11 @@ cat(
 
 cat(
   "Genes after filtering:",
-  length(unique(aSwitchListFiltered$isoformFeatures$gene_id)),
+  length(
+    unique(
+      aSwitchListFiltered$isoformFeatures$gene_id
+    )
+  ),
   "\n"
 )
 
@@ -115,10 +108,12 @@ cat(
 # ============================================================
 
 aSwitchListAnalyzed <- isoformSwitchTestDEXSeq(
-  aSwitchListFiltered
+  aSwitchListFiltered,
+  alpha = 0.05,
+  dIFcutoff = 0.10
 )
 
-# Significance criteria used in downstream analyses:
+# Significance criteria:
 # |dIF| >= 0.10
 # isoform-switch q-value < 0.05
 
@@ -143,11 +138,12 @@ aSwitchListAnalyzed <- analyzeAlternativeSplicing(
 # 8. Predicted functional consequences
 # ============================================================
 
-# These consequence classes correspond to the analyses
-# reported in Supplementary Figure S2.
+# Consequence classes used for the analyses reported
+# in Supplementary Figure S2.
 #
-# removeNonConseqSwitches = FALSE retains all significant
-# isoform-switch comparisons for systematic downstream analyses.
+# removeNonConseqSwitches = FALSE retains isoform-switch
+# comparisons even when none of the selected consequences
+# is identified.
 
 aSwitchListAnalyzed <- analyzeSwitchConsequences(
   aSwitchListAnalyzed,
@@ -164,7 +160,7 @@ aSwitchListAnalyzed <- analyzeSwitchConsequences(
 )
 
 # ============================================================
-# 9. Export significant switching results
+# 9. Export isoform-switching results
 # ============================================================
 
 dir.create(
@@ -173,6 +169,7 @@ dir.create(
   recursive = TRUE
 )
 
+# Complete isoform-level table
 isoformTable <- aSwitchListAnalyzed$isoformFeatures
 
 write.table(
@@ -182,6 +179,48 @@ write.table(
   quote = FALSE,
   row.names = FALSE
 )
+
+# ------------------------------------------------------------
+# Significant isoforms
+# ------------------------------------------------------------
+
+significant_isoforms <- isoformTable[
+  !is.na(isoformTable$isoform_switch_q_value) &
+    isoformTable$isoform_switch_q_value < 0.05 &
+    abs(isoformTable$dIF) >= 0.10,
+]
+
+cat(
+  "Significant switching isoforms:",
+  nrow(significant_isoforms),
+  "\n"
+)
+
+cat(
+  "Genes with significant isoform switching:",
+  length(
+    unique(
+      significant_isoforms$gene_id
+    )
+  ),
+  "\n"
+)
+
+# Expected:
+# Significant switching isoforms: 163
+# Genes with significant isoform switching: 122
+
+write.table(
+  significant_isoforms,
+  file = "results/Significant_Isoform_Switches.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = FALSE
+)
+
+# ------------------------------------------------------------
+# Isoform-switch summary
+# ------------------------------------------------------------
 
 switchSummary <- extractSwitchSummary(
   aSwitchListAnalyzed
